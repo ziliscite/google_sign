@@ -5,7 +5,7 @@ firebaseAuthKtx = "23.1.0"
 googleServices = "4.4.2"
 hiltAndroid = "2.51.1"
 hiltCompiler = "1.2.0"
-kotlin = "2.0.0"
+kotlin = "2.0.21"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -15,6 +15,7 @@ activityCompose = "1.9.3"
 composeBom = "2024.04.01"
 navigationCompose = "2.8.3"
 playServicesAuth = "21.2.0"
+firebaseAuth = "23.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +43,7 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
