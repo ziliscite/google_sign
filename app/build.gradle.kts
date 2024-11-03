@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.compose.credentials"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.compose.credentials"
