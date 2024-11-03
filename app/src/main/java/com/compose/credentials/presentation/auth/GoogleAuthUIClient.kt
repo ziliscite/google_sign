@@ -2,12 +2,9 @@ package com.compose.credentials.presentation.auth
 
 import android.content.Context
 import android.content.Intent
-import android.content.IntentSender
-import android.util.Log
 import com.compose.credentials.R
-import com.google.android.gms.auth.api.identity.BeginSignInRequest
-import com.google.android.gms.auth.api.identity.BeginSignInRequest.GoogleIdTokenRequestOptions
-import com.google.android.gms.auth.api.identity.SignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.Firebase
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
@@ -15,31 +12,26 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
 // Later use cred manager instead of SignInClient
-class GoogleAuthUIClient(
-    private val context: Context,
-    private val oneTapClient: SignInClient
-) {
+class GoogleAuthUIClient(context: Context) {
     private val auth = Firebase.auth
 
-    suspend fun signInWithGoogle(): IntentSender? {
-        val result = try {
-            oneTapClient.beginSignIn(
-                buildSignInRequest()
-            ).await() // wait until sign-in finished
-        } catch (e: Exception) {
-            e.printStackTrace()
-            if (e is CancellationException) throw e
-            null
-        }
-        return result?.pendingIntent?.intentSender
+    // Instantiate googleSignInClient once and reuse it
+    private val googleSignInClient = GoogleSignIn.getClient(context,
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.web_client_id))
+            .requestEmail()
+            .build()
+    )
+
+    fun signInWithGoogleIntent(): Intent {
+        return googleSignInClient.signInIntent
     }
 
-    suspend fun signInWithIntent(intent: Intent?): SignInResult {
-        // -- Google specific
-        val credential = oneTapClient.getSignInCredentialFromIntent(intent)
-        val idToken = credential.googleIdToken
-        val googleCred = GoogleAuthProvider.getCredential(idToken, null)
-        // --
+    suspend fun signInWithIntentGoogle(intent: Intent): SignInResult {
+        val task = GoogleSignIn.getSignedInAccountFromIntent(intent)
+        val account = task.await()
+        val googleCred = GoogleAuthProvider.getCredential(account.idToken, null)
+
         return try {
             // Get firebase user
             val user = auth.signInWithCredential(googleCred).await().user
@@ -50,7 +42,6 @@ class GoogleAuthUIClient(
                     it.photoUrl.toString()
                 )
             }
-            markUserAsSignedIn()
             SignInResult(data, null)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -59,13 +50,18 @@ class GoogleAuthUIClient(
         }
     }
 
-    suspend fun signOut() {
+    fun signOutGoogle() {
+        googleSignInClient.signOut() // Also sign out from Google client
+        auth.signOut() // Sign out from Firebase
+    }
+
+    suspend fun revokeAccess() {
         try {
-            oneTapClient.signOut().await()
-            auth.signOut()
+            googleSignInClient.revokeAccess().await()
         } catch (e: Exception) {
             e.printStackTrace()
             if (e is CancellationException) throw e
+            // Handle specific ApiException codes or show an error message
         }
     }
 
@@ -77,30 +73,6 @@ class GoogleAuthUIClient(
                 it.photoUrl.toString()
             )
         }
-    }
-
-    private fun buildSignInRequest(): BeginSignInRequest {
-        val hasSignedInBefore = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-            .getBoolean("has_signed_in", false)
-
-        return BeginSignInRequest.Builder()
-            .setGoogleIdTokenRequestOptions(
-                GoogleIdTokenRequestOptions.builder()
-                    .setSupported(true)
-                    .setServerClientId(context.getString(R.string.web_client_id))
-                    .setFilterByAuthorizedAccounts(hasSignedInBefore)
-                    .build()
-            )
-            .setAutoSelectEnabled(true)
-            .build()
-    }
-
-    // After successful sign-in
-    private fun markUserAsSignedIn() {
-        context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean("has_signed_in", true)
-            .apply()
     }
 }
 

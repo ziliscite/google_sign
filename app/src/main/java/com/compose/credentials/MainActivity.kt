@@ -24,15 +24,11 @@ import com.compose.credentials.presentation.auth.SignInScreen
 import com.compose.credentials.presentation.auth.SignInViewModel
 import com.compose.credentials.presentation.profile.ProfileScreen
 import com.compose.credentials.ui.theme.CredentialsTheme
-import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val googleAuthUIClient by lazy {
-        GoogleAuthUIClient(
-            context = applicationContext,
-            oneTapClient = Identity.getSignInClient(applicationContext)
-        )
+        GoogleAuthUIClient(applicationContext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,14 +51,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // launcher for the intent
-                            val launcher = rememberLauncherForActivityResult(
-                                contract = ActivityResultContracts.StartIntentSenderForResult(),
-                            ) {
+                            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                                 if (it.resultCode == RESULT_OK) { lifecycleScope.launch {
-                                    val result = googleAuthUIClient.signInWithIntent(
-                                        intent = it.data ?: return@launch
-                                    )
+                                    val result = googleAuthUIClient.signInWithIntentGoogle(it.data ?: return@launch)
                                     viewModel.onSignInResult(result)
                                 }}
                             }
@@ -70,8 +61,6 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(state.isSuccessful) {
                                 if (state.isSuccessful) {
                                     Toast.makeText(applicationContext, "Success", Toast.LENGTH_SHORT).show()
-
-                                    // If signed out, fresh state to log in again
                                     navController.navigate("profile")
                                     viewModel.resetState()
                                 }
@@ -81,22 +70,24 @@ class MainActivity : ComponentActivity() {
                                 state = state
                             ) {
                                 lifecycleScope.launch {
-                                    val signInIntentSender = googleAuthUIClient.signInWithGoogle()
-                                    launcher.launch(
-                                        IntentSenderRequest.Builder(
-                                            signInIntentSender ?: return@launch
-                                        ).build()
-                                    )
+                                    val signInIntentSender = googleAuthUIClient.signInWithGoogleIntent()
+                                    launcher.launch(signInIntentSender)
                                 }
                             }
                         }
                         composable(route = "profile") {
                             ProfileScreen(googleAuthUIClient.getSignedInUser()) {
+                                googleAuthUIClient.signOutGoogle()
                                 lifecycleScope.launch {
-                                    googleAuthUIClient.signOut()
-                                    Toast.makeText(applicationContext, "Signed out", Toast.LENGTH_SHORT).show()
+                                    try {
+                                        googleAuthUIClient.revokeAccess()
+                                        Toast.makeText(applicationContext, "Signed out", Toast.LENGTH_SHORT).show()
+                                        navController.popBackStack()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        Toast.makeText(applicationContext, "Failed to revoke access. Try again.", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
-                                navController.popBackStack()
                             }
                         }
                     }
